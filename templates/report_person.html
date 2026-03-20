@@ -1,0 +1,107 @@
+{% extends 'base.html' %}
+{% block title %}Report ανά Άτομο{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h1 class="page-title mb-0"><i class="bi bi-person-badge-fill"></i> Report ανά Άτομο</h1>
+  <form method="get" class="d-flex gap-2">
+    <select name="year" class="form-select form-select-sm" style="width:auto" onchange="this.form.submit()">
+      <option value="">Όλα τα έτη</option>
+      {% for y in years %}<option value="{{ y }}" {{ 'selected' if y==sel_year }}>{{ y }}</option>{% endfor %}
+    </select>
+    <select name="person_id" class="form-select form-select-sm" style="width:auto" onchange="this.form.submit()">
+      <option value="">Όλα τα άτομα</option>
+      {% for p in persons %}<option value="{{ p.id }}" {{ 'selected' if p.id|string==sel_person_id }}>{{ p.name }}</option>{% endfor %}
+    </select>
+  </form>
+</div>
+
+{% if not persons %}
+<div class="alert alert-info">
+  <i class="bi bi-info-circle me-2"></i>Δεν έχετε ορίσει άτομα ακόμα. <a href="{{ url_for('persons') }}">Προσθέστε άτομα</a> για να χρησιμοποιήσετε αυτό το report.
+</div>
+{% else %}
+
+{% if person_totals %}
+<div class="row g-3 mb-3">
+  <div class="col-md-{{ '5' if cat_breakdown else '12' }}">
+    <div class="card">
+      <div class="table-responsive">
+        <table class="table table-hover mb-0">
+          <thead><tr><th>Άτομο</th><th class="text-end">Σύνολο</th><th class="text-end">Εγγρ.</th><th class="text-end">Μ.Ο./εγγ.</th></tr></thead>
+          <tbody>
+            {% for r in person_totals %}
+            <tr>
+              <td><span class="badge-person fs-6">{{ r['name'] }}</span></td>
+              <td class="text-end amount">€{{ "%.2f"|format(r['total']) }}</td>
+              <td class="text-end">{{ r['cnt'] }}</td>
+              <td class="text-end small">€{{ "%.2f"|format(r['avg']) }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  {% if cat_breakdown %}
+  <div class="col-md-7">
+    <div class="card p-3 mb-3">
+      <h6 class="fw-semibold text-secondary mb-2">Κατανομή ανά Κατηγορία</h6>
+      <canvas id="personPie" height="170"></canvas>
+    </div>
+    <div class="card">
+      <div class="table-responsive">
+        <table class="table table-sm mb-0">
+          <thead><tr><th>Κατηγορία</th><th class="text-end">Σύνολο</th><th class="text-end">Εγγρ.</th></tr></thead>
+          <tbody>
+            {% for r in cat_breakdown %}
+            <tr>
+              <td><span class="badge-cat">{{ r['name'] }}</span></td>
+              <td class="text-end amount">€{{ "%.2f"|format(r['total']) }}</td>
+              <td class="text-end small">{{ r['cnt'] }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+</div>
+
+{% if monthly_trend %}
+<div class="card p-3">
+  <h6 class="fw-semibold text-secondary mb-2">Μηνιαία Εξέλιξη</h6>
+  <canvas id="personTrend" height="80"></canvas>
+</div>
+{% endif %}
+
+{% else %}
+<div class="alert alert-info">Δεν βρέθηκαν έξοδα για τα επιλεγμένα φίλτρα.</div>
+{% endif %}
+
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+{% if cat_breakdown %}
+<script>
+const pLabels = {{ cat_breakdown|map(attribute='name')|list|tojson }};
+const pValues = {{ cat_breakdown|map(attribute='total')|list|tojson }};
+const COLORS = ['#3b82f6','#8b5cf6','#ec4899','#ef4444','#f97316','#eab308','#22c55e','#06b6d4','#6366f1','#f43f5e','#14b8a6','#84cc16'];
+new Chart(document.getElementById('personPie'), {
+  type: 'doughnut',
+  data: { labels: pLabels.slice(0,12), datasets: [{ data: pValues.slice(0,12), backgroundColor:COLORS, borderWidth:2, borderColor:'#fff' }] },
+  options: { responsive:true, plugins:{ legend:{ position:'right', labels:{ font:{size:11}, boxWidth:14 } } } }
+});
+{% if monthly_trend %}
+const tL = {{ monthly_trend|map(attribute='ym')|list|tojson }};
+const tV = {{ monthly_trend|map(attribute='total')|list|tojson }};
+new Chart(document.getElementById('personTrend'), {
+  type: 'bar',
+  data: { labels:tL, datasets:[{ data:tV, backgroundColor:'rgba(59,130,246,.7)', borderRadius:4 }] },
+  options: { responsive:true, plugins:{legend:{display:false}}, scales:{ y:{beginAtZero:true} } }
+});
+{% endif %}
+</script>
+{% endif %}
+{% endblock %}

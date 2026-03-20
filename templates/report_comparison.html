@@ -1,0 +1,114 @@
+{% extends 'base.html' %}
+{% block title %}Σύγκριση Ετών{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h1 class="page-title mb-0"><i class="bi bi-arrow-left-right"></i> Σύγκριση Ετών</h1>
+  <form method="get" class="d-flex gap-2 align-items-center">
+    <select name="year1" class="form-select form-select-sm" style="width:auto" onchange="this.form.submit()">
+      {% for y in years %}<option value="{{ y }}" {{ 'selected' if y==year1 }}>{{ y }}</option>{% endfor %}
+    </select>
+    <span class="text-muted fw-semibold">vs</span>
+    <select name="year2" class="form-select form-select-sm" style="width:auto" onchange="this.form.submit()">
+      {% for y in years %}<option value="{{ y }}" {{ 'selected' if y==year2 }}>{{ y }}</option>{% endfor %}
+    </select>
+  </form>
+</div>
+
+<!-- Summary -->
+<div class="row g-3 mb-3">
+  {% for yr, tinc, texp in [(year1, tinc1, total1), (year2, tinc2, total2)] %}
+  {% set bal = tinc - texp %}
+  <div class="col-md-6">
+    <div class="card p-3">
+      <h6 class="fw-bold text-center mb-3">{{ yr }}</h6>
+      <div class="row g-2 text-center">
+        <div class="col-4"><div class="small text-muted">Έσοδα</div><div class="amount text-income">€{{ "%.0f"|format(tinc) }}</div></div>
+        <div class="col-4"><div class="small text-muted">Έξοδα</div><div class="amount text-expense">€{{ "%.0f"|format(texp) }}</div></div>
+        <div class="col-4"><div class="small text-muted">Ισοζύγιο</div><div class="amount {{ 'text-income' if bal>=0 else 'text-expense' }}">{{ '+' if bal>0 else '' }}€{{ "%.0f"|format(bal) }}</div></div>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+<!-- Monthly expense chart -->
+<div class="row g-3 mb-3">
+  <div class="col-md-6">
+    <div class="card p-3">
+      <h6 class="fw-semibold text-secondary mb-2">Μηνιαία Έξοδα</h6>
+      <canvas id="compExp" height="150"></canvas>
+    </div>
+  </div>
+  <div class="col-md-6">
+    <div class="card p-3">
+      <h6 class="fw-semibold text-secondary mb-2">Μηνιαία Έσοδα</h6>
+      <canvas id="compInc" height="150"></canvas>
+    </div>
+  </div>
+</div>
+
+<!-- Category comparison -->
+<div class="card p-3">
+  <h6 class="fw-semibold text-secondary mb-3">Σύγκριση Κατηγοριών Εξόδων</h6>
+  <div class="table-responsive">
+    <table class="table table-hover mb-0">
+      <thead>
+        <tr><th>Κατηγορία</th><th class="text-end">{{ year1 }}</th><th class="text-end">{{ year2 }}</th><th class="text-end">Διαφορά €</th><th class="text-end">Διαφορά %</th></tr>
+      </thead>
+      <tbody>
+        {% for cat in all_cats %}
+        {% set v1 = cats1.get(cat, 0) %}
+        {% set v2 = cats2.get(cat, 0) %}
+        {% set d  = v2 - v1 %}
+        {% set p  = ((d/v1)*100) if v1 > 0 else 0 %}
+        <tr>
+          <td><span class="badge-cat">{{ cat }}</span></td>
+          <td class="text-end small amount">{{ '€%.2f'|format(v1) if v1 > 0 else '—' }}</td>
+          <td class="text-end small amount">{{ '€%.2f'|format(v2) if v2 > 0 else '—' }}</td>
+          <td class="text-end small fw-semibold {{ 'text-danger' if d > 0 else 'text-success' if d < 0 else '' }}">{% if d != 0 %}{{ '+' if d>0 else '' }}€{{ "%.2f"|format(d) }}{% else %}—{% endif %}</td>
+          <td class="text-end small fw-semibold {{ 'text-danger' if p > 0 else 'text-success' if p < 0 else '' }}">{% if v1>0 and d!=0 %}{{ '+' if p>0 else '' }}{{ "%.1f"|format(p) }}%{% else %}—{% endif %}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+      <tfoot class="table-light fw-bold">
+        <tr>
+          <td>Σύνολο</td>
+          <td class="text-end amount">€{{ "%.2f"|format(total1) }}</td>
+          <td class="text-end amount">€{{ "%.2f"|format(total2) }}</td>
+          {% set td = total2-total1 %}
+          <td class="text-end {{ 'text-danger' if td>0 else 'text-success' }}">{{ '+' if td>0 else '' }}€{{ "%.2f"|format(td) }}</td>
+          <td class="text-end {{ 'text-danger' if td>0 else 'text-success' }}">{% if total1>0 %}{{ '+' if td>0 else '' }}{{ "%.1f"|format(td/total1*100) }}%{% endif %}</td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const mShort = {{ month_short|tojson }};
+const m1data = {{ m1|tojson }};
+const m2data = {{ m2|tojson }};
+const i1data = {{ i1|tojson }};
+const i2data = {{ i2|tojson }};
+function arr12(data) { const a=new Array(12).fill(null); data.forEach(r=>{a[parseInt(r.m)-1]=r.total;}); return a; }
+const opts = (y1,y2) => ({
+  responsive:true,
+  plugins:{ legend:{labels:{font:{size:11},boxWidth:12}} },
+  scales:{ y:{beginAtZero:true, ticks:{callback:v=>'€'+v.toLocaleString('el-GR')}} }
+});
+new Chart(document.getElementById('compExp'), {
+  type:'bar', data:{ labels:mShort.slice(1), datasets:[
+    {label:'{{ year1 }}',data:arr12(m1data),backgroundColor:'rgba(59,130,246,.7)',borderRadius:4},
+    {label:'{{ year2 }}',data:arr12(m2data),backgroundColor:'rgba(239,68,68,.6)',borderRadius:4},
+  ]}, options:opts()
+});
+new Chart(document.getElementById('compInc'), {
+  type:'bar', data:{ labels:mShort.slice(1), datasets:[
+    {label:'{{ year1 }}',data:arr12(i1data),backgroundColor:'rgba(34,197,94,.5)',borderRadius:4},
+    {label:'{{ year2 }}',data:arr12(i2data),backgroundColor:'rgba(34,197,94,.9)',borderRadius:4},
+  ]}, options:opts()
+});
+</script>
+{% endblock %}

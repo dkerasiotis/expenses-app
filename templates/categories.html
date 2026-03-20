@@ -1,0 +1,57 @@
+{% extends 'base.html' %}
+{% block title %}Κατηγορίες{% endblock %}
+{% block content %}
+<h1 class="page-title"><i class="bi bi-tags-fill"></i> Κατηγορίες</h1>
+
+<div class="row g-3">
+  <div class="col-md-4">
+    <div class="card p-3">
+      <h6 class="fw-semibold mb-3">Προσθήκη Νέας Κατηγορίας</h6>
+      <form method="post" action="{{ url_for('add_category') }}">
+        <div class="input-group">
+          <input type="text" name="name" class="form-control" placeholder="Όνομα κατηγορίας..." required maxlength="100">
+          <button class="btn btn-primary" type="submit"><i class="bi bi-plus-lg"></i></button>
+        </div>
+      </form>
+    </div>
+  </div>
+  <div class="col-md-8">
+    <div class="card">
+      <div class="table-responsive">
+        <table class="table table-hover mb-0">
+          <thead><tr><th>Κατηγορία</th><th class="text-end">Εγγραφές</th><th class="text-end">Σύνολο</th><th>Τελευταία</th><th>Ενέργειες</th></tr></thead>
+          <tbody>
+            {% for r in rows %}
+            <tr>
+              <td><span class="badge-cat">{{ r['name'] }}</span></td>
+              <td class="text-end small">{{ r['cnt'] }}</td>
+              <td class="text-end amount">€{{ "%.2f"|format(r['total']) }}</td>
+              <td class="text-muted small">{{ r['last_date'] or '—' }}</td>
+              <td>
+                <button class="btn btn-sm btn-outline-secondary py-0 px-1" data-bs-toggle="modal" data-bs-target="#rnCat{{ r['id'] }}"><i class="bi bi-pencil"></i></button>
+                {% if r['cnt'] == 0 %}
+                <form method="post" action="{{ url_for('delete_category', cid=r['id']) }}" class="d-inline" onsubmit="return confirm('Διαγραφή;')">
+                  <button class="btn btn-sm btn-outline-danger py-0 px-1"><i class="bi bi-trash"></i></button>
+                </form>
+                {% endif %}
+              </td>
+            </tr>
+            <div class="modal fade" id="rnCat{{ r['id'] }}" tabindex="-1">
+              <div class="modal-dialog modal-sm">
+                <div class="modal-content">
+                  <div class="modal-header"><h6 class="modal-title">Μετονομασία</h6><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+                  <form method="post" action="{{ url_for('rename_category', cid=r['id']) }}">
+                    <div class="modal-body"><input type="text" name="name" class="form-control" value="{{ r['name'] }}" required></div>
+                    <div class="modal-footer"><button class="btn btn-primary btn-sm">Αποθήκευση</button></div>
+                  </form>
+                </div>
+              </div>
+            </div>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

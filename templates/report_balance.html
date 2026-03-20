@@ -1,0 +1,149 @@
+{% extends 'base.html' %}
+{% block title %}Ισοζύγιο{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h1 class="page-title mb-0"><i class="bi bi-wallet-fill"></i> Ισοζύγιο Εσόδων - Εξόδων</h1>
+  <form method="get" class="d-flex gap-2">
+    <select name="year" class="form-select form-select-sm" style="width:auto" onchange="this.form.submit()">
+      {% for y in years %}<option value="{{ y }}" {{ 'selected' if y==year }}>{{ y }}</option>{% endfor %}
+    </select>
+  </form>
+</div>
+
+<!-- Annual totals banner -->
+{% set year_inc = namespace(v=0) %}
+{% set year_exp = namespace(v=0) %}
+{% for r in monthly_inc %}{% set year_inc.v = year_inc.v + r['total'] %}{% endfor %}
+{% for r in monthly_exp %}{% set year_exp.v = year_exp.v + r['total'] %}{% endfor %}
+{% set year_bal = year_inc.v - year_exp.v %}
+
+<div class="row g-3 mb-4">
+  <div class="col-md-4">
+    <div class="card p-3 text-center border-0" style="background:linear-gradient(135deg,#f0fdf4,#dcfce7)">
+      <div class="text-success small fw-semibold mb-1"><i class="bi bi-arrow-down-circle me-1"></i>Συνολικά Έσοδα {{ year }}</div>
+      <div class="amount fs-3 text-income">€{{ "%.2f"|format(year_inc.v) }}</div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card p-3 text-center border-0" style="background:linear-gradient(135deg,#fef2f2,#fee2e2)">
+      <div class="text-danger small fw-semibold mb-1"><i class="bi bi-arrow-up-circle me-1"></i>Συνολικά Έξοδα {{ year }}</div>
+      <div class="amount fs-3 text-expense">€{{ "%.2f"|format(year_exp.v) }}</div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card p-3 text-center border-0" style="background:linear-gradient(135deg,{{ '#f0fdf4,#dcfce7' if year_bal >= 0 else '#fef2f2,#fee2e2' }})">
+      <div class="small fw-semibold mb-1 {{ 'text-success' if year_bal >= 0 else 'text-danger' }}"><i class="bi bi-wallet2 me-1"></i>Ισοζύγιο {{ year }}</div>
+      <div class="amount fs-3 {{ 'text-income' if year_bal >= 0 else 'text-expense' }}">{{ '+' if year_bal > 0 else '' }}€{{ "%.2f"|format(year_bal) }}</div>
+    </div>
+  </div>
+</div>
+
+<!-- Monthly chart -->
+<div class="card p-3 mb-3">
+  <h6 class="fw-semibold text-secondary mb-2">Μηνιαία Σύγκριση {{ year }}</h6>
+  <canvas id="balChart" height="100"></canvas>
+</div>
+
+<!-- Monthly table -->
+<div class="card mb-3">
+  <div class="table-responsive">
+    <table class="table table-hover mb-0">
+      <thead>
+        <tr><th>Μήνας</th><th class="text-end text-success">Έσοδα</th><th class="text-end text-danger">Έξοδα</th><th class="text-end">Ισοζύγιο</th><th>Αποταμίευση %</th></tr>
+      </thead>
+      <tbody>
+        {% set inc_by_m = {} %}
+        {% set exp_by_m = {} %}
+        {% for r in monthly_inc %}{% set _ = inc_by_m.update({r['m']: r['total']}) %}{% endfor %}
+        {% for r in monthly_exp %}{% set _ = exp_by_m.update({r['m']: r['total']}) %}{% endfor %}
+        {% set all_months = (inc_by_m.keys() | list + exp_by_m.keys() | list) | unique | sort %}
+        {% for m in all_months %}
+        {% set inc_v = inc_by_m.get(m, 0) %}
+        {% set exp_v = exp_by_m.get(m, 0) %}
+        {% set bal = inc_v - exp_v %}
+        {% set sav_pct = ((bal/inc_v)*100) if inc_v > 0 else 0 %}
+        <tr>
+          <td><strong>{{ month_names[m|int] }}</strong></td>
+          <td class="text-end amount text-income">€{{ "%.2f"|format(inc_v) }}</td>
+          <td class="text-end amount text-expense">€{{ "%.2f"|format(exp_v) }}</td>
+          <td class="text-end amount fw-bold {{ 'text-income' if bal >= 0 else 'text-expense' }}">{{ '+' if bal > 0 else '' }}€{{ "%.2f"|format(bal) }}</td>
+          <td>
+            {% if inc_v > 0 %}
+            <div class="d-flex align-items-center gap-2">
+              <div class="bg-light rounded flex-grow-1" style="height:6px">
+                <div class="rounded {{ 'bg-success' if sav_pct >= 0 else 'bg-danger' }}" style="height:6px;width:{{ [sav_pct|abs, 100]|min }}%"></div>
+              </div>
+              <small class="{{ 'text-success' if sav_pct >= 0 else 'text-danger' }}">{{ "%.0f"|format(sav_pct) }}%</small>
+            </div>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+      <tfoot class="table-light fw-bold">
+        <tr>
+          <td>Σύνολο {{ year }}</td>
+          <td class="text-end amount text-income">€{{ "%.2f"|format(year_inc.v) }}</td>
+          <td class="text-end amount text-expense">€{{ "%.2f"|format(year_exp.v) }}</td>
+          <td class="text-end amount {{ 'text-income' if year_bal >= 0 else 'text-expense' }}">{{ '+' if year_bal > 0 else '' }}€{{ "%.2f"|format(year_bal) }}</td>
+          <td><small class="{{ 'text-success' if year_bal >= 0 else 'text-danger' }}">{% if year_inc.v > 0 %}{{ "%.0f"|format((year_bal/year_inc.v)*100) }}%{% endif %}</small></td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+</div>
+
+<!-- Annual balance history -->
+<div class="card p-3">
+  <h6 class="fw-semibold text-secondary mb-3">Ιστορικό Ισοζυγίου ανά Έτος</h6>
+  <div class="table-responsive">
+    <table class="table table-hover mb-0">
+      <thead><tr><th>Έτος</th><th class="text-end text-success">Έσοδα</th><th class="text-end text-danger">Έξοδα</th><th class="text-end">Ισοζύγιο</th><th>Αποταμίευση</th></tr></thead>
+      <tbody>
+        {% for r in annual_bal %}
+        {% set bp = ((r['balance']/r['income'])*100) if r['income'] > 0 else 0 %}
+        <tr>
+          <td><strong>{{ r['y'] }}</strong></td>
+          <td class="text-end amount text-income">€{{ "%.0f"|format(r['income']) }}</td>
+          <td class="text-end amount text-expense">€{{ "%.0f"|format(r['expenses']) }}</td>
+          <td class="text-end amount fw-bold {{ 'text-income' if r['balance'] >= 0 else 'text-expense' }}">{{ '+' if r['balance'] > 0 else '' }}€{{ "%.0f"|format(r['balance']) }}</td>
+          <td class="small {{ 'text-success' if bp >= 0 else 'text-danger' }}">{% if r['income'] > 0 %}{{ "%.1f"|format(bp) }}%{% endif %}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const mInc = {{ monthly_inc|tojson }};
+const mExp = {{ monthly_exp|tojson }};
+const mShort = {{ month_short|tojson }};
+function arr12(data) {
+  const a = new Array(12).fill(null);
+  data.forEach(r => { a[parseInt(r.m)-1] = r.total; });
+  return a;
+}
+const incArr = arr12(mInc);
+const expArr = arr12(mExp);
+const balArr = incArr.map((v, i) => (v !== null || expArr[i] !== null) ? (v||0) - (expArr[i]||0) : null);
+new Chart(document.getElementById('balChart'), {
+  type: 'bar',
+  data: {
+    labels: mShort.slice(1),
+    datasets: [
+      { label: 'Έσοδα',   data: incArr, backgroundColor: 'rgba(34,197,94,.7)', borderRadius: 4 },
+      { label: 'Έξοδα',   data: expArr, backgroundColor: 'rgba(239,68,68,.7)',  borderRadius: 4 },
+      { label: 'Ισοζύγιο',data: balArr, type: 'line', borderColor: '#3b82f6', backgroundColor:'transparent', tension:0.3, pointRadius:5, yAxisID:'y' },
+    ]
+  },
+  options: {
+    responsive: true,
+    plugins: { legend: { labels: { font:{size:11}, boxWidth:12 } } },
+    scales: { y: { ticks: { callback: v => '€'+v.toLocaleString('el-GR') } } }
+  }
+});
+</script>
+{% endblock %}

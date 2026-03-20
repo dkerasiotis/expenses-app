@@ -1,0 +1,177 @@
+{% extends 'base.html' %}
+{% block title %}Τάσεις{% endblock %}
+{% block content %}
+<h1 class="page-title"><i class="bi bi-graph-up-arrow"></i> Τάσεις &amp; Στατιστικά</h1>
+
+<!-- YoY Chart -->
+<div class="card p-3 mb-3">
+  <h6 class="fw-semibold text-secondary mb-2">Σύγκριση Ετών ανά Μήνα (Year-over-Year)</h6>
+  <canvas id="yoyChart" height="110"></canvas>
+</div>
+
+<div class="row g-3 mb-3">
+  <!-- Average monthly per year -->
+  <div class="col-md-6">
+    <div class="card p-3">
+      <h6 class="fw-semibold text-secondary mb-3">Μέσος Μηνιαίος Δαπάνη ανά Έτος</h6>
+      <canvas id="avgChart" height="160"></canvas>
+    </div>
+  </div>
+  <!-- Top categories all time -->
+  <div class="col-md-6">
+    <div class="card p-3">
+      <h6 class="fw-semibold text-secondary mb-3">Top 10 Κατηγορίες (Σύνολο Όλων)</h6>
+      {% set max_total = namespace(v=0) %}
+      {% for r in top_cats %}{% if r['total'] > max_total.v %}{% set max_total.v = r['total'] %}{% endif %}{% endfor %}
+      {% for r in top_cats %}
+      <div class="mb-2">
+        <div class="d-flex justify-content-between mb-1">
+          <span class="badge-cat">{{ r['name'] }}</span>
+          <span class="amount small text-primary">€{{ "%.0f"|format(r['total']) }}</span>
+        </div>
+        <div class="bg-light rounded" style="height:6px">
+          <div class="rounded bg-primary" style="height:6px;width:{{ ((r['total']/max_total.v)*100)|round(1) if max_total.v > 0 else 0 }}%"></div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+<div class="row g-3 mb-3">
+  <!-- Biggest single days -->
+  <div class="col-md-6">
+    <div class="card p-3">
+      <h6 class="fw-semibold text-secondary mb-3"><i class="bi bi-fire me-1 text-danger"></i>Μέρες με Μεγαλύτερα Έξοδα</h6>
+      <div class="table-responsive">
+        <table class="table table-sm table-hover mb-0">
+          <thead><tr><th>Ημερομηνία</th><th class="text-end">Σύνολο</th><th class="text-end">Εγγρ.</th></tr></thead>
+          <tbody>
+            {% for r in big_days %}
+            <tr>
+              <td class="small">{{ r['expense_date'] }}</td>
+              <td class="text-end amount text-danger">€{{ "%.2f"|format(r['total']) }}</td>
+              <td class="text-end small text-muted">{{ r['cnt'] }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Category growth -->
+  <div class="col-md-6">
+    <div class="card p-3">
+      <h6 class="fw-semibold text-secondary mb-3">
+        <i class="bi bi-arrow-up-right-circle me-1 text-success"></i>
+        Μεταβολή Κατηγοριών
+        {% if all_years|length >= 2 %}
+        <small class="text-muted fw-normal">({{ all_years[-1] }} → {{ all_years[0] }})</small>
+        {% endif %}
+      </h6>
+      {% if cat_growth %}
+      <div class="table-responsive">
+        <table class="table table-sm table-hover mb-0">
+          <thead>
+            <tr>
+              <th>Κατηγορία</th>
+              <th class="text-end">{{ all_years[-1] }}</th>
+              <th class="text-end">{{ all_years[0] }}</th>
+              <th class="text-end">Μεταβολή</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for r in cat_growth %}
+            {% set change = ((r['last_y'] - r['first_y']) / r['first_y'] * 100) if r['first_y'] > 0 else 0 %}
+            <tr>
+              <td><span class="badge-cat">{{ r['name'] }}</span></td>
+              <td class="text-end small">€{{ "%.0f"|format(r['first_y']) }}</td>
+              <td class="text-end small">€{{ "%.0f"|format(r['last_y']) }}</td>
+              <td class="text-end small fw-semibold {{ 'text-danger' if change > 0 else 'text-success' }}">
+                {{ '+' if change > 0 else '' }}{{ "%.1f"|format(change) }}%
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <p class="text-muted small">Χρειάζονται τουλάχιστον 2 έτη δεδομένων.</p>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<!-- Annual stats summary -->
+<div class="card p-3">
+  <h6 class="fw-semibold text-secondary mb-3">Ετήσια Στατιστικά</h6>
+  <div class="table-responsive">
+    <table class="table table-sm table-hover mb-0">
+      <thead><tr><th>Έτος</th><th class="text-end">Μέσος Μήνας</th><th class="text-end">Ελάχιστος Μήνας</th><th class="text-end">Μέγιστος Μήνας</th></tr></thead>
+      <tbody>
+        {% for r in avg_monthly %}
+        <tr>
+          <td><strong>{{ r['y'] }}</strong></td>
+          <td class="text-end amount">€{{ "%.2f"|format(r['avg_m']) }}</td>
+          <td class="text-end small text-success">€{{ "%.2f"|format(r['min_m']) }}</td>
+          <td class="text-end small text-danger">€{{ "%.2f"|format(r['max_m']) }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const yoyData  = {{ yoy|tojson }};
+const mShort   = {{ month_short|tojson }};
+const allYears = {{ all_years|tojson }};
+const COLORS   = ['#3b82f6','#22c55e','#f97316','#ec4899','#8b5cf6','#06b6d4','#eab308','#ef4444','#14b8a6','#6366f1'];
+
+// Build YoY datasets
+const yoyByYear = {};
+yoyData.forEach(r => {
+  if (!yoyByYear[r.y]) yoyByYear[r.y] = {};
+  yoyByYear[r.y][r.m] = r.total;
+});
+const yoyDatasets = allYears.map((y, i) => ({
+  label: y,
+  data: Array.from({length:12}, (_, mi) => yoyByYear[y]?.[String(mi+1).padStart(2,'0')] || null),
+  borderColor: COLORS[i % COLORS.length],
+  backgroundColor: 'transparent',
+  tension: 0.3,
+  pointRadius: 3,
+  spanGaps: true,
+}));
+new Chart(document.getElementById('yoyChart'), {
+  type: 'line',
+  data: { labels: mShort.slice(1), datasets: yoyDatasets },
+  options: {
+    responsive: true,
+    plugins: { legend: { position: 'right', labels: { font: { size: 11 }, boxWidth: 14 } } },
+    scales: { y: { beginAtZero: true, ticks: { callback: v => '€' + v.toLocaleString('el-GR') } } }
+  }
+});
+
+// Avg monthly chart
+const avgData = {{ avg_monthly|tojson }};
+new Chart(document.getElementById('avgChart'), {
+  type: 'bar',
+  data: {
+    labels: avgData.map(r => r.y),
+    datasets: [
+      { label: 'Μέσος', data: avgData.map(r => r.avg_m), backgroundColor: 'rgba(59,130,246,.7)', borderRadius: 4 },
+      { label: 'Μέγιστος', data: avgData.map(r => r.max_m), backgroundColor: 'rgba(239,68,68,.3)', borderRadius: 4 },
+    ]
+  },
+  options: {
+    responsive: true,
+    plugins: { legend: { labels: { font: { size: 11 }, boxWidth: 12 } } },
+    scales: { y: { beginAtZero: true, ticks: { callback: v => '€' + v.toLocaleString('el-GR') } } }
+  }
+});
+</script>
+{% endblock %}

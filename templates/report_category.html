@@ -1,0 +1,84 @@
+{% extends 'base.html' %}
+{% block title %}Report ανά Κατηγορία{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h1 class="page-title mb-0"><i class="bi bi-pie-chart-fill"></i> Report ανά Κατηγορία</h1>
+  <form method="get" class="d-flex gap-2">
+    <select name="year" class="form-select form-select-sm" style="width:auto" onchange="this.form.submit()">
+      <option value="">Όλα τα έτη</option>
+      {% for y in years %}<option value="{{ y }}" {{ 'selected' if y==sel_year }}>{{ y }}</option>{% endfor %}
+    </select>
+    <select name="category_id" class="form-select form-select-sm" style="width:auto" onchange="this.form.submit()">
+      <option value="">Όλες οι κατηγορίες</option>
+      {% for c in categories %}<option value="{{ c.id }}" {{ 'selected' if c.id|string==sel_category_id }}>{{ c.name }}</option>{% endfor %}
+    </select>
+  </form>
+</div>
+
+<div class="row g-3 mb-3">
+  <div class="col-md-5">
+    <div class="card p-3">
+      <h6 class="fw-semibold text-secondary mb-2">Κατανομή</h6>
+      <canvas id="pieChart" height="220"></canvas>
+    </div>
+  </div>
+  <div class="col-md-7">
+    <div class="card">
+      <div class="table-responsive">
+        <table class="table table-hover mb-0">
+          <thead><tr><th>Κατηγορία</th><th class="text-end">Σύνολο</th><th class="text-end">Εγγρ.</th><th class="text-end">Μ.Ο.</th><th class="text-end">Max</th></tr></thead>
+          <tbody>
+            {% set grand = namespace(v=0) %}
+            {% for r in cat_totals %}{% set grand.v = grand.v + r['total'] %}{% endfor %}
+            {% for r in cat_totals %}
+            <tr>
+              <td>
+                <span class="badge-cat">{{ r['name'] }}</span>
+                {% if grand.v > 0 %}
+                <div class="bg-light rounded mt-1" style="height:4px;max-width:120px">
+                  <div class="rounded bg-primary" style="height:4px;width:{{ ((r['total']/grand.v)*100)|round(1) }}%"></div>
+                </div>
+                {% endif %}
+              </td>
+              <td class="text-end amount">€{{ "%.2f"|format(r['total']) }}</td>
+              <td class="text-end small">{{ r['cnt'] }}</td>
+              <td class="text-end small">€{{ "%.2f"|format(r['avg']) }}</td>
+              <td class="text-end small">€{{ "%.2f"|format(r['max_a']) }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% if trend %}
+<div class="card p-3">
+  <h6 class="fw-semibold text-secondary mb-2">Μηνιαία Εξέλιξη Κατηγορίας</h6>
+  <canvas id="trendChart" height="80"></canvas>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const pieLabels = {{ cat_totals[:12]|map(attribute='name')|list|tojson }};
+const pieValues = {{ cat_totals[:12]|map(attribute='total')|list|tojson }};
+const COLORS = ['#3b82f6','#8b5cf6','#ec4899','#ef4444','#f97316','#eab308','#22c55e','#06b6d4','#6366f1','#f43f5e','#14b8a6','#84cc16'];
+new Chart(document.getElementById('pieChart'), {
+  type: 'doughnut',
+  data: { labels: pieLabels, datasets: [{ data: pieValues, backgroundColor: COLORS, borderWidth:2, borderColor:'#fff' }] },
+  options: { responsive:true, plugins:{ legend:{ position:'right', labels:{ font:{size:11}, boxWidth:14 } } } }
+});
+{% if trend %}
+const tLabels = {{ trend|map(attribute='ym')|list|tojson }};
+const tValues = {{ trend|map(attribute='total')|list|tojson }};
+new Chart(document.getElementById('trendChart'), {
+  type: 'bar',
+  data: { labels: tLabels, datasets: [{ data: tValues, backgroundColor:'rgba(59,130,246,.7)', borderRadius:4 }] },
+  options: { responsive:true, plugins:{legend:{display:false}}, scales:{ y:{beginAtZero:true, ticks:{callback:v=>'€'+v.toLocaleString('el-GR')}} } }
+});
+{% endif %}
+</script>
+{% endblock %}

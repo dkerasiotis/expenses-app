@@ -1,0 +1,90 @@
+{% extends 'base.html' %}
+{% block title %}Ετήσια Report{% endblock %}
+{% block content %}
+<h1 class="page-title"><i class="bi bi-bar-chart-fill"></i> Ετήσια Report</h1>
+
+<div class="row g-3 mb-3">
+  <div class="col-lg-8">
+    <div class="card p-3">
+      <h6 class="fw-semibold text-secondary mb-2">Έσοδα vs Έξοδα ανά Έτος</h6>
+      <canvas id="annualChart" height="110"></canvas>
+    </div>
+  </div>
+  <div class="col-lg-4">
+    <div class="card p-3">
+      <h6 class="fw-semibold text-secondary mb-3">Ετήσιο Ισοζύγιο</h6>
+      {% set inc_by_y = {} %}
+      {% for r in annual_income %}{% set _ = inc_by_y.update({r['y']: r['total']}) %}{% endfor %}
+      <div class="table-responsive">
+        <table class="table table-sm mb-0">
+          <thead><tr><th>Έτος</th><th class="text-end">Έσοδα</th><th class="text-end">Έξοδα</th><th class="text-end">Ισοζύγιο</th></tr></thead>
+          <tbody>
+            {% for r in annual_totals %}
+            {% set inc_v = inc_by_y.get(r['y'], 0) %}
+            {% set bal = inc_v - r['total'] %}
+            <tr>
+              <td><strong>{{ r['y'] }}</strong></td>
+              <td class="text-end small text-income">€{{ "%.0f"|format(inc_v) }}</td>
+              <td class="text-end small text-expense">€{{ "%.0f"|format(r['total']) }}</td>
+              <td class="text-end small fw-bold {{ 'text-income' if bal >= 0 else 'text-expense' }}">{{ '+' if bal>0 else '' }}€{{ "%.0f"|format(bal) }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="card p-3">
+  <h6 class="fw-semibold text-secondary mb-3">Ανάλυση Εξόδων ανά Κατηγορία &amp; Έτος</h6>
+  {% set yc = {} %}
+  {% for r in annual_by_cat %}
+    {% if r['y'] not in yc %}{% set _ = yc.update({r['y']: {}}) %}{% endif %}
+    {% set _ = yc[r['y']].update({r['name']: r['total']}) %}
+  {% endfor %}
+  {% set all_years = annual_totals|map(attribute='y')|list %}
+  {% set all_cats  = annual_by_cat|map(attribute='name')|unique|sort|list %}
+  <div class="table-responsive">
+    <table class="table table-sm table-hover mb-0">
+      <thead><tr><th>Κατηγορία</th>{% for y in all_years %}<th class="text-end">{{ y }}</th>{% endfor %}</tr></thead>
+      <tbody>
+        {% for cat in all_cats %}
+        <tr>
+          <td><span class="badge-cat">{{ cat }}</span></td>
+          {% for y in all_years %}<td class="text-end small">{{ '€%.0f'|format(yc.get(y,{}).get(cat,0)) if yc.get(y,{}).get(cat,0)>0 else '—' }}</td>{% endfor %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const aYears  = {{ annual_totals|map(attribute='y')|list|tojson }};
+const aExp    = {{ annual_totals|map(attribute='total')|list|tojson }};
+const incByY  = {{ annual_income|tojson }};
+const incMap  = {};
+incByY.forEach(r => { incMap[r.y] = r.total; });
+const aInc = aYears.map(y => incMap[y] || 0);
+const aBal = aYears.map((y,i) => aInc[i] - aExp[i]);
+new Chart(document.getElementById('annualChart'), {
+  type: 'bar',
+  data: {
+    labels: aYears,
+    datasets: [
+      { label:'Έσοδα',    data:aInc, backgroundColor:'rgba(34,197,94,.7)', borderRadius:4 },
+      { label:'Έξοδα',    data:aExp, backgroundColor:'rgba(239,68,68,.7)',  borderRadius:4 },
+      { label:'Ισοζύγιο', data:aBal, type:'line', borderColor:'#3b82f6', backgroundColor:'transparent', tension:0.3, pointRadius:5 },
+    ]
+  },
+  options: {
+    responsive:true,
+    plugins:{ legend:{ labels:{ font:{size:11}, boxWidth:12 } } },
+    scales:{ y:{ ticks:{ callback:v=>'€'+v.toLocaleString('el-GR') } } }
+  }
+});
+</script>
+{% endblock %}

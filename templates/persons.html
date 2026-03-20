@@ -1,0 +1,60 @@
+{% extends 'base.html' %}
+{% block title %}Άτομα{% endblock %}
+{% block content %}
+<h1 class="page-title"><i class="bi bi-people-fill"></i> Άτομα</h1>
+<p class="text-muted small mb-3">Τα άτομα χρησιμοποιούνται για να αποδίδετε έξοδα σε συγκεκριμένα μέλη του νοικοκυριού. Τα ιστορικά δεδομένα από το Excel δεν έχουν συνδεθεί με άτομα.</p>
+
+<div class="row g-3">
+  <div class="col-md-5">
+    <div class="card p-3">
+      <h6 class="fw-semibold mb-3">Προσθήκη Νέου Ατόμου</h6>
+      <form method="post" action="{{ url_for('add_person') }}">
+        <div class="input-group">
+          <input type="text" name="name" class="form-control" placeholder="Όνομα ατόμου..." required maxlength="80">
+          <button class="btn btn-primary" type="submit"><i class="bi bi-plus-lg"></i> Προσθήκη</button>
+        </div>
+      </form>
+    </div>
+  </div>
+  <div class="col-md-7">
+    <div class="card">
+      <div class="table-responsive">
+        <table class="table table-hover mb-0">
+          <thead><tr><th>Όνομα</th><th class="text-end">Εγγραφές</th><th class="text-end">Σύνολο</th><th>Ενέργειες</th></tr></thead>
+          <tbody>
+            {% for r in rows %}
+            <tr>
+              <td><span class="badge-person fs-6 px-2 py-1">{{ r['name'] }}</span></td>
+              <td class="text-end">{{ r['cnt'] }}</td>
+              <td class="text-end amount">€{{ "%.2f"|format(r['total']) }}</td>
+              <td>
+                <button class="btn btn-sm btn-outline-secondary py-0 px-1" data-bs-toggle="modal" data-bs-target="#renameModal{{ r['id'] }}"><i class="bi bi-pencil"></i></button>
+                {% if r['cnt'] == 0 %}
+                <form method="post" action="{{ url_for('delete_person', pid=r['id']) }}" class="d-inline" onsubmit="return confirm('Διαγραφή;')">
+                  <button class="btn btn-sm btn-outline-danger py-0 px-1"><i class="bi bi-trash"></i></button>
+                </form>
+                {% endif %}
+              </td>
+            </tr>
+            <!-- Rename Modal -->
+            <div class="modal fade" id="renameModal{{ r['id'] }}" tabindex="-1">
+              <div class="modal-dialog modal-sm">
+                <div class="modal-content">
+                  <div class="modal-header"><h6 class="modal-title">Μετονομασία</h6><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+                  <form method="post" action="{{ url_for('rename_person', pid=r['id']) }}">
+                    <div class="modal-body"><input type="text" name="name" class="form-control" value="{{ r['name'] }}" required></div>
+                    <div class="modal-footer"><button class="btn btn-primary btn-sm">Αποθήκευση</button></div>
+                  </form>
+                </div>
+              </div>
+            </div>
+            {% else %}
+            <tr><td colspan="4" class="text-center text-muted py-3">Δεν υπάρχουν άτομα ακόμα.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

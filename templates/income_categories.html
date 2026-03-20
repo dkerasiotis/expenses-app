@@ -1,0 +1,66 @@
+{% extends 'base.html' %}
+{% block title %}Κατηγορίες Εσόδων{% endblock %}
+{% block content %}
+<h1 class="page-title"><i class="bi bi-tags-fill text-success"></i> Κατηγορίες Εσόδων</h1>
+<div class="row g-3">
+  <div class="col-md-4">
+    <div class="card p-3">
+      <h6 class="fw-semibold mb-3">Προσθήκη Κατηγορίας</h6>
+      <form method="post" action="{{ url_for('add_income_category') }}">
+        <div class="input-group">
+          <input type="text" name="name" class="form-control" placeholder="π.χ. Μισθός, Ενοίκιο..." required>
+          <button class="btn btn-success" type="submit"><i class="bi bi-plus-lg"></i></button>
+        </div>
+      </form>
+      <div class="mt-3">
+        <p class="text-muted small mb-1">Παραδείγματα κατηγοριών:</p>
+        <div class="d-flex flex-wrap gap-1">
+          {% for ex in ['Μισθός','Ενοίκιο','Σύνταξη','Δώρο','Επιδότηση','Τόκοι','Πώληση'] %}
+          <span class="badge-inc">{{ ex }}</span>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-8">
+    <div class="card">
+      <div class="table-responsive">
+        <table class="table table-hover mb-0">
+          <thead><tr><th>Κατηγορία</th><th class="text-end">Εγγραφές</th><th class="text-end">Σύνολο</th><th>Τελευταία</th><th>Ενέργειες</th></tr></thead>
+          <tbody>
+            {% for r in rows %}
+            <tr>
+              <td><span class="badge-inc">{{ r['name'] }}</span></td>
+              <td class="text-end small">{{ r['cnt'] }}</td>
+              <td class="text-end amount text-income">€{{ "%.2f"|format(r['total']) }}</td>
+              <td class="text-muted small">{{ r['last_date'] or '—' }}</td>
+              <td>
+                <button class="btn btn-sm btn-outline-secondary py-0 px-1" data-bs-toggle="modal" data-bs-target="#rnIC{{ r['id'] }}"><i class="bi bi-pencil"></i></button>
+                {% if r['cnt'] == 0 %}
+                <form method="post" action="{{ url_for('delete_income_category', cid=r['id']) }}" class="d-inline" onsubmit="return confirm('Διαγραφή;')">
+                  <button class="btn btn-sm btn-outline-danger py-0 px-1"><i class="bi bi-trash"></i></button>
+                </form>
+                {% endif %}
+              </td>
+            </tr>
+            <div class="modal fade" id="rnIC{{ r['id'] }}" tabindex="-1">
+              <div class="modal-dialog modal-sm">
+                <div class="modal-content">
+                  <div class="modal-header"><h6 class="modal-title">Μετονομασία</h6><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+                  <form method="post" action="{{ url_for('rename_income_category', cid=r['id']) }}">
+                    <div class="modal-body"><input type="text" name="name" class="form-control" value="{{ r['name'] }}" required></div>
+                    <div class="modal-footer"><button class="btn btn-success btn-sm">Αποθήκευση</button></div>
+                  </form>
+                </div>
+              </div>
+            </div>
+            {% else %}
+            <tr><td colspan="5" class="text-center text-muted py-3">Δεν υπάρχουν κατηγορίες εσόδων.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

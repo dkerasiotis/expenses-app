@@ -1,0 +1,89 @@
+{% extends 'base.html' %}
+{% block title %}Μηνιαία Report{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h1 class="page-title mb-0"><i class="bi bi-calendar3"></i> Μηνιαία Report</h1>
+  <form method="get" class="d-flex gap-2">
+    <select name="year" class="form-select form-select-sm" style="width:auto" onchange="this.form.submit()">
+      {% for y in years %}<option value="{{ y }}" {{ 'selected' if y==year }}>{{ y }}</option>{% endfor %}
+    </select>
+  </form>
+</div>
+
+<div class="card p-3 mb-3">
+  <h6 class="fw-semibold text-secondary mb-2">Έσοδα vs Έξοδα {{ year }}</h6>
+  <canvas id="lineChart" height="90"></canvas>
+</div>
+
+<div class="card mb-3">
+  <div class="table-responsive">
+    <table class="table table-hover mb-0">
+      <thead><tr><th>Μήνας</th><th class="text-end text-success">Έσοδα</th><th class="text-end text-danger">Έξοδα</th><th class="text-end">Ισοζύγιο</th><th>Top Κατηγορία Εξόδων</th></tr></thead>
+      <tbody>
+        {% set inc_by_m = {} %}{% set exp_by_m = {} %}
+        {% for r in monthly_income %}{% set _ = inc_by_m.update({r['m']: r['total']}) %}{% endfor %}
+        {% for r in monthly_totals %}{% set _ = exp_by_m.update({r['m']: r['total']}) %}{% endfor %}
+        {% set top_cat_by_m = {} %}
+        {% for r in cat_monthly %}{% if r['m'] not in top_cat_by_m %}{% set _ = top_cat_by_m.update({r['m']: r}) %}{% endif %}{% endfor %}
+        {% set all_months = (inc_by_m.keys()|list + exp_by_m.keys()|list)|unique|sort %}
+        {% for m in all_months %}
+        {% set inc_v = inc_by_m.get(m, 0) %}
+        {% set exp_v = exp_by_m.get(m, 0) %}
+        {% set bal = inc_v - exp_v %}
+        <tr>
+          <td><strong>{{ month_names[m|int] }}</strong></td>
+          <td class="text-end amount text-income">€{{ "%.2f"|format(inc_v) }}</td>
+          <td class="text-end amount text-expense">€{{ "%.2f"|format(exp_v) }}</td>
+          <td class="text-end amount fw-bold {{ 'text-income' if bal >= 0 else 'text-expense' }}">{{ '+' if bal > 0 else '' }}€{{ "%.2f"|format(bal) }}</td>
+          <td>{% set tc = top_cat_by_m.get(m) %}{% if tc %}<span class="badge-cat">{{ tc['cat'] }}</span> <small class="text-muted">€{{ "%.0f"|format(tc['total']) }}</small>{% endif %}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="card p-3">
+  <h6 class="fw-semibold text-secondary mb-3">Ανάλυση Κατηγοριών Εξόδων ανά Μήνα</h6>
+  {% set cm = {} %}
+  {% for r in cat_monthly %}
+    {% if r['cat'] not in cm %}{% set _ = cm.update({r['cat']: {}}) %}{% endif %}
+    {% set _ = cm[r['cat']].update({r['m']: r['total']}) %}
+  {% endfor %}
+  {% set months_present = monthly_totals|map(attribute='m')|list %}
+  <div class="table-responsive">
+    <table class="table table-sm table-hover mb-0">
+      <thead><tr><th>Κατηγορία</th>{% for m in months_present %}<th class="text-end">{{ month_short[m|int] }}</th>{% endfor %}<th class="text-end">Σύνολο</th></tr></thead>
+      <tbody>
+        {% for cat in cm|sort %}
+        <tr>
+          <td><span class="badge-cat">{{ cat }}</span></td>
+          {% for m in months_present %}<td class="text-end small">{{ "%.0f"|format(cm[cat].get(m,0)) if cm[cat].get(m,0)>0 else '—' }}</td>{% endfor %}
+          <td class="text-end amount small">€{{ "%.0f"|format(cm[cat].values()|sum) }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const mTotals = {{ monthly_totals|tojson }};
+const mIncome = {{ monthly_income|tojson }};
+const mShort  = {{ month_short|tojson }};
+function arr12(data) { const a=new Array(12).fill(null); data.forEach(r=>{a[parseInt(r.m)-1]=r.total;}); return a; }
+new Chart(document.getElementById('lineChart'), {
+  type: 'bar',
+  data: {
+    labels: mShort.slice(1),
+    datasets: [
+      { label:'Έσοδα',  data:arr12(mIncome), backgroundColor:'rgba(34,197,94,.7)', borderRadius:4 },
+      { label:'Έξοδα',  data:arr12(mTotals), backgroundColor:'rgba(239,68,68,.7)',  borderRadius:4 },
+    ]
+  },
+  options: { responsive:true, plugins:{legend:{labels:{font:{size:11},boxWidth:12}}}, scales:{ y:{beginAtZero:true, ticks:{callback:v=>'€'+v.toLocaleString('el-GR')}} } }
+});
+</script>
+{% endblock %}

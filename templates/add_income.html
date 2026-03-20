@@ -1,0 +1,42 @@
+{% extends 'base.html' %}
+{% block title %}Νέο Έσοδο{% endblock %}
+{% block content %}
+<h1 class="page-title"><i class="bi bi-plus-circle-fill text-success"></i> Νέο Έσοδο</h1>
+<div class="card p-4" style="max-width:540px">
+  <form method="post">
+    <div class="mb-3">
+      <label class="form-label fw-semibold">Κατηγορία Εσόδου <span class="text-danger">*</span></label>
+      <select name="category_id" class="form-select" required>
+        <option value="">— Επιλογή —</option>
+        {% for c in income_categories %}<option value="{{ c.id }}">{{ c.name }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="mb-3">
+      <label class="form-label fw-semibold">Άτομο <span class="text-muted small">(προαιρετικό)</span></label>
+      <select name="person_id" class="form-select">
+        <option value="">— Χωρίς άτομο —</option>
+        {% for p in persons %}<option value="{{ p.id }}">{{ p.name }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="mb-3">
+      <label class="form-label fw-semibold">Ημερομηνία <span class="text-danger">*</span></label>
+      <input type="date" name="income_date" class="form-control" value="{{ today }}" required>
+    </div>
+    <div class="mb-3">
+      <label class="form-label fw-semibold">Ποσό (€) <span class="text-danger">*</span></label>
+      <div class="input-group">
+        <span class="input-group-text text-success">€</span>
+        <input type="number" name="amount" class="form-control" step="0.01" min="0.01" placeholder="0.00" required autofocus>
+      </div>
+    </div>
+    <div class="mb-4">
+      <label class="form-label fw-semibold">Σημειώσεις</label>
+      <input type="text" name="notes" class="form-control" placeholder="Προαιρετικό...">
+    </div>
+    <div class="d-flex gap-2">
+      <button type="submit" class="btn btn-success"><i class="bi bi-check-lg me-1"></i>Καταχώρηση</button>
+      <a href="{{ url_for('income') }}" class="btn btn-outline-secondary">Ακύρωση</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

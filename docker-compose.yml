@@ -1,0 +1,39 @@
+services:
+  expenses:
+    build: .
+    container_name: oikiaka-exoda
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    volumes:
+      # Persistent database – ο φάκελος /data του container αντιστοιχεί στο ./data του host
+      - ./data:/data
+    env_file:
+      - .env
+    environment:
+      - DB_PATH=/data/expenses.db
+
+# ─── Οδηγίες Χρήσης ────────────────────────────────────────────────────────
+# 1. ΠΡΩΤΗ ΕΚΚΙΝΗΣΗ (με εισαγωγή ιστορικών δεδομένων από Excel):
+#
+#    mkdir -p data
+#    cp /path/to/έξοδα.xlsx data/exoda.xlsx
+#    docker compose up --build -d
+#
+#    Το init_db.py θα ανιχνεύσει αυτόματα το data/exoda.xlsx και θα
+#    εισάγει όλα τα ιστορικά δεδομένα στη βάση.
+#
+# 2. ΕΚΚΙΝΗΣΗ (χωρίς Excel, κενή βάση):
+#
+#    docker compose up --build -d
+#
+# 3. ΠΡΟΒΟΛΗ LOGS:
+#    docker compose logs -f
+#
+# 4. ΕΙΣΑΓΩΓΗ EXCEL ΑΡΓΟΤΕΡΑ (αν η βάση είναι κενή):
+#    docker compose exec expenses python init_db.py /data/exoda.xlsx
+#
+# 5. ΣΤΑΜΑΤΗΜΑ:
+#    docker compose down
+#
+# Η εφαρμογή θα είναι διαθέσιμη στο: http://localhost:5000

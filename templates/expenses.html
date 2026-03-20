@@ -1,0 +1,100 @@
+{% extends 'base.html' %}
+{% block title %}Λίστα Εξόδων{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h1 class="page-title mb-0"><i class="bi bi-table text-danger"></i> Λίστα Εξόδων</h1>
+  <a href="{{ url_for('add_expense') }}" class="btn btn-danger btn-sm"><i class="bi bi-plus-lg me-1"></i>Νέο</a>
+</div>
+
+<div class="card mb-3 p-3">
+  <form method="get" class="row g-2 align-items-end">
+    <div class="col-6 col-md-2">
+      <label class="form-label small fw-semibold mb-1">Άτομο</label>
+      <select name="person_id" class="form-select form-select-sm">
+        <option value="">Όλα</option>
+        {% for p in persons %}<option value="{{ p.id }}" {{ 'selected' if f.get('person_id')==p.id|string }}>{{ p.name }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="col-6 col-md-2">
+      <label class="form-label small fw-semibold mb-1">Κατηγορία</label>
+      <select name="category_id" class="form-select form-select-sm">
+        <option value="">Όλες</option>
+        {% for c in categories %}<option value="{{ c.id }}" {{ 'selected' if f.get('category_id')==c.id|string }}>{{ c.name }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="col-6 col-md-2">
+      <label class="form-label small fw-semibold mb-1">Έτος</label>
+      <select name="year" class="form-select form-select-sm">
+        <option value="">Όλα</option>
+        {% for y in years %}<option value="{{ y }}" {{ 'selected' if f.get('year')==y }}>{{ y }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="col-6 col-md-2">
+      <label class="form-label small fw-semibold mb-1">Μήνας</label>
+      <select name="month" class="form-select form-select-sm">
+        <option value="">Όλοι</option>
+        {% for i in range(12) %}<option value="{{ i+1 }}" {{ 'selected' if f.get('month')==(i+1)|string }}>{{ month_short[i] }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="col-6 col-md-2">
+      <label class="form-label small fw-semibold mb-1">Από</label>
+      <input type="date" name="date_from" class="form-control form-control-sm" value="{{ f.get('date_from','') }}">
+    </div>
+    <div class="col-6 col-md-2">
+      <label class="form-label small fw-semibold mb-1">Έως</label>
+      <input type="date" name="date_to" class="form-control form-control-sm" value="{{ f.get('date_to','') }}">
+    </div>
+    <div class="col-12 d-flex gap-2 align-items-center flex-wrap">
+      <button type="submit" class="btn btn-danger btn-sm"><i class="bi bi-search me-1"></i>Αναζήτηση</button>
+      <a href="{{ url_for('expenses') }}" class="btn btn-outline-secondary btn-sm">Καθαρισμός</a>
+      <a href="{{ url_for('pending_expenses') }}" class="btn btn-warning btn-sm ms-1"><i class="bi bi-clock-fill me-1"></i>Εκκρεμείς</a>
+      <span class="ms-auto text-muted small">{{ total_count }} εγγραφές &mdash; Σύνολο: <strong class="amount text-dark">€{{ "%.2f"|format(total_sum) }}</strong></span>
+    </div>
+  </form>
+</div>
+
+<div class="card">
+  <div class="table-responsive">
+    <table class="table table-hover mb-0">
+      <thead><tr><th>Ημερομηνία</th><th>Κατηγορία</th><th>Άτομο</th><th class="text-end">Ποσό</th><th>Σημειώσεις</th><th></th></tr></thead>
+      <tbody>
+        {% for r in rows %}
+        <tr class="{{ 'table-warning' if r['is_pending'] else '' }}">
+          <td class="text-nowrap small">
+            {{ r['expense_date'] }}
+            {% if r['is_pending'] %}<span class="badge bg-warning text-dark ms-1"><i class="bi bi-clock-fill"></i> Εκκρεμής</span>{% endif %}
+          </td>
+          <td><span class="badge-cat">{{ r['category'] }}</span></td>
+          <td>{% if r['person'] %}<span class="badge-person">{{ r['person'] }}</span>{% else %}<span class="text-muted small">—</span>{% endif %}</td>
+          <td class="text-end amount {{ 'text-muted' if r['is_pending'] else '' }}">€{{ "%.2f"|format(r['amount']) }}</td>
+          <td class="text-muted small">{{ r['notes'] or '' }}</td>
+          <td class="text-nowrap">
+            {% if r['is_pending'] %}
+            <form method="post" action="{{ url_for('complete_expense', eid=r['id']) }}" class="d-inline">
+              <button class="btn btn-sm btn-success py-0 px-1" title="Ολοκλήρωση"><i class="bi bi-check-lg"></i></button>
+            </form>
+            {% endif %}
+            <a href="{{ url_for('edit_expense', eid=r['id']) }}" class="btn btn-sm btn-outline-secondary py-0 px-1"><i class="bi bi-pencil"></i></a>
+            <form method="post" action="{{ url_for('delete_expense', eid=r['id']) }}" class="d-inline" onsubmit="return confirm('Διαγραφή;')">
+              <button class="btn btn-sm btn-outline-danger py-0 px-1"><i class="bi bi-trash"></i></button>
+            </form>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="6" class="text-center text-muted py-4">Δεν βρέθηκαν εγγραφές.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% if total_pages > 1 %}
+<nav class="mt-3 d-flex justify-content-center">
+  <ul class="pagination pagination-sm">
+    {% if page > 1 %}<li class="page-item"><a class="page-link" href="?{% for k,v in f.items() %}{% if k!='page' %}{{ k }}={{ v }}&{% endif %}{% endfor %}page={{ page-1 }}">‹</a></li>{% endif %}
+    {% for p in range([1,page-2]|max, [total_pages+1,page+3]|min) %}<li class="page-item {{ 'active' if p==page }}"><a class="page-link" href="?{% for k,v in f.items() %}{% if k!='page' %}{{ k }}={{ v }}&{% endif %}{% endfor %}page={{ p }}">{{ p }}</a></li>{% endfor %}
+    {% if page < total_pages %}<li class="page-item"><a class="page-link" href="?{% for k,v in f.items() %}{% if k!='page' %}{{ k }}={{ v }}&{% endif %}{% endfor %}page={{ page+1 }}">›</a></li>{% endif %}
+  </ul>
+</nav>
+{% endif %}
+{% endblock %}
