@@ -75,7 +75,7 @@
 ### Βήμα 1: Κλωνοποίηση
 
 ```bash
-git clone https://github.com/dimitris-nik/expenses-app.git
+git clone https://github.com/dkerasiotis/expenses-app.git
 cd expenses-app
 ```
 
