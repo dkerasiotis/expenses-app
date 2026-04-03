@@ -17,8 +17,6 @@ def run_migrations():
         name TEXT UNIQUE NOT NULL,
         initial_balance REAL NOT NULL DEFAULT 0
     )''')
-    conn.execute("INSERT OR IGNORE INTO accounts(name, initial_balance) VALUES('Λογαριασμός 1', 0)")
-    conn.execute("INSERT OR IGNORE INTO accounts(name, initial_balance) VALUES('Λογαριασμός 2', 0)")
     cols_exp = [r[1] for r in conn.execute("PRAGMA table_info(expenses)").fetchall()]
     if 'account_id' not in cols_exp:
         conn.execute('ALTER TABLE expenses ADD COLUMN account_id INTEGER REFERENCES accounts(id)')
@@ -562,3 +560,35 @@ def update_account(aid):
         flash('Το όνομα δεν μπορεί να είναι κενό.', 'danger'); return redirect(url_for('index'))
     db = get_db(); db.execute('UPDATE accounts SET name=?, initial_balance=? WHERE id=?', (name, balance, aid)); db.commit(); db.close()
     flash('Λογαριασμός ενημερώθηκε!', 'success'); return redirect(url_for('index'))
+
+@app.route('/accounts/add', methods=['POST'])
+@login_required
+def add_account():
+    name = request.form.get('name', '').strip()
+    try:
+        balance = float(request.form.get('initial_balance', 0))
+    except ValueError:
+        balance = 0.0
+    if not name:
+        flash('Το όνομα δεν μπορεί να είναι κενό.', 'danger'); return redirect(url_for('index'))
+    db = get_db()
+    try:
+        db.execute('INSERT INTO accounts(name, initial_balance) VALUES(?,?)', (name, balance))
+        db.commit()
+        flash(f'Λογαριασμός "{name}" προστέθηκε!', 'success')
+    except sqlite3.IntegrityError:
+        flash('Υπάρχει ήδη λογαριασμός με αυτό το όνομα.', 'danger')
+    db.close(); return redirect(url_for('index'))
+
+@app.route('/accounts/delete/<int:aid>', methods=['POST'])
+@login_required
+def delete_account(aid):
+    db = get_db()
+    n_exp = db.execute('SELECT COUNT(*) FROM expenses WHERE account_id=?', (aid,)).fetchone()[0]
+    n_inc = db.execute('SELECT COUNT(*) FROM income WHERE account_id=?', (aid,)).fetchone()[0]
+    if n_exp > 0 or n_inc > 0:
+        flash(f'Δεν μπορεί να διαγραφεί — έχει {n_exp + n_inc} συναλλαγές.', 'danger')
+    else:
+        db.execute('DELETE FROM accounts WHERE id=?', (aid,)); db.commit()
+        flash('Λογαριασμός διαγράφηκε.', 'info')
+    db.close(); return redirect(url_for('index'))

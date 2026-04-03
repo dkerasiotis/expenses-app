@@ -91,6 +91,34 @@
 </div>
 
 <!-- ── Account Balances ───────────────────────────────────────── -->
+<div class="d-flex justify-content-between align-items-center mb-2">
+  <h6 class="fw-bold text-secondary mb-0"><i class="bi bi-bank me-1"></i>Λογαριασμοί</h6>
+  <button class="btn btn-outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#modalAddAccount"><i class="bi bi-plus-lg me-1"></i>Νέος Λογαριασμός</button>
+</div>
+<!-- Modal: Νέος Λογαριασμός -->
+<div class="modal fade" id="modalAddAccount" tabindex="-1">
+  <div class="modal-dialog modal-sm">
+    <div class="modal-content">
+      <div class="modal-header py-2"><h6 class="modal-title mb-0">Νέος Λογαριασμός</h6><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+      <form method="post" action="{{ url_for('add_account') }}">
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label small fw-semibold">Όνομα <span class="text-danger">*</span></label>
+            <input type="text" name="name" class="form-control" placeholder="π.χ. Κοινός Λογαριασμός" required>
+          </div>
+          <label class="form-label small fw-semibold">Αρχικό κεφάλαιο (€)</label>
+          <div class="input-group">
+            <span class="input-group-text">€</span>
+            <input type="number" name="initial_balance" class="form-control" step="0.01" value="0">
+          </div>
+        </div>
+        <div class="modal-footer py-2">
+          <button type="submit" class="btn btn-primary btn-sm">Προσθήκη</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
 <div class="row g-3 mb-4">
   {% for acc in account_balances %}
   <div class="col-12 col-md-4">
@@ -124,7 +152,10 @@
                 <input type="number" name="initial_balance" class="form-control" step="0.01" value="{{ acc.initial_balance }}" required>
               </div>
             </div>
-            <div class="modal-footer py-2">
+            <div class="modal-footer py-2 d-flex justify-content-between">
+              <form method="post" action="{{ url_for('delete_account', aid=acc.id) }}" onsubmit="return confirm('Διαγραφή λογαριασμού «{{ acc.name }}»;')">
+                <button type="submit" class="btn btn-outline-danger btn-sm"><i class="bi bi-trash"></i> Διαγραφή</button>
+              </form>
               <button type="submit" class="btn btn-primary btn-sm">Αποθήκευση</button>
             </div>
           </form>
