@@ -111,10 +111,14 @@
     <div class="modal fade" id="modalBalance{{ acc.id }}" tabindex="-1">
       <div class="modal-dialog modal-sm">
         <div class="modal-content">
-          <div class="modal-header py-2"><h6 class="modal-title mb-0">Αρχικό κεφάλαιο — {{ acc.name }}</h6><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
-          <form method="post" action="{{ url_for('set_account_balance', aid=acc.id) }}">
+          <div class="modal-header py-2"><h6 class="modal-title mb-0">Ρυθμίσεις λογαριασμού</h6><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+          <form method="post" action="{{ url_for('update_account', aid=acc.id) }}">
             <div class="modal-body">
-              <label class="form-label small fw-semibold">Ποσό (€)</label>
+              <div class="mb-3">
+                <label class="form-label small fw-semibold">Όνομα λογαριασμού</label>
+                <input type="text" name="name" class="form-control" value="{{ acc.name }}" required>
+              </div>
+              <label class="form-label small fw-semibold">Αρχικό κεφάλαιο (€)</label>
               <div class="input-group">
                 <span class="input-group-text">€</span>
                 <input type="number" name="initial_balance" class="form-control" step="0.01" value="{{ acc.initial_balance }}" required>

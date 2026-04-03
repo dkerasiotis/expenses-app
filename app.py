@@ -17,8 +17,8 @@ def run_migrations():
         name TEXT UNIQUE NOT NULL,
         initial_balance REAL NOT NULL DEFAULT 0
     )''')
-    conn.execute("INSERT OR IGNORE INTO accounts(name, initial_balance) VALUES('Δημήτρης', 0)")
-    conn.execute("INSERT OR IGNORE INTO accounts(name, initial_balance) VALUES('Κατερίνα', 0)")
+    conn.execute("INSERT OR IGNORE INTO accounts(name, initial_balance) VALUES('Λογαριασμός 1', 0)")
+    conn.execute("INSERT OR IGNORE INTO accounts(name, initial_balance) VALUES('Λογαριασμός 2', 0)")
     cols_exp = [r[1] for r in conn.execute("PRAGMA table_info(expenses)").fetchall()]
     if 'account_id' not in cols_exp:
         conn.execute('ALTER TABLE expenses ADD COLUMN account_id INTEGER REFERENCES accounts(id)')
@@ -550,12 +550,15 @@ def pending_expenses():
 
 # ─── ACCOUNTS ────────────────────────────────────────────────────────────────
 
-@app.route('/accounts/set-balance/<int:aid>', methods=['POST'])
+@app.route('/accounts/update/<int:aid>', methods=['POST'])
 @login_required
-def set_account_balance(aid):
+def update_account(aid):
+    name = request.form.get('name', '').strip()
     try:
         balance = float(request.form['initial_balance'])
     except (ValueError, KeyError):
         flash('Μη έγκυρο ποσό.', 'danger'); return redirect(url_for('index'))
-    db = get_db(); db.execute('UPDATE accounts SET initial_balance=? WHERE id=?', (balance, aid)); db.commit(); db.close()
-    flash('Αρχικό κεφάλαιο ενημερώθηκε!', 'success'); return redirect(url_for('index'))
+    if not name:
+        flash('Το όνομα δεν μπορεί να είναι κενό.', 'danger'); return redirect(url_for('index'))
+    db = get_db(); db.execute('UPDATE accounts SET name=?, initial_balance=? WHERE id=?', (name, balance, aid)); db.commit(); db.close()
+    flash('Λογαριασμός ενημερώθηκε!', 'success'); return redirect(url_for('index'))
