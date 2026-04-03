@@ -12,6 +12,13 @@
       </select>
     </div>
     <div class="mb-3">
+      <label class="form-label fw-semibold">Λογαριασμός <span class="text-danger">*</span></label>
+      <select name="account_id" class="form-select" required>
+        <option value="">— Επιλογή λογαριασμού —</option>
+        {% for a in accounts %}<option value="{{ a.id }}">{{ a.name }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="mb-3">
       <label class="form-label fw-semibold">Άτομο <span class="text-muted small">(προαιρετικό)</span></label>
       <select name="person_id" class="form-select">
         <option value="">— Χωρίς άτομο —</option>

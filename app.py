@@ -10,6 +10,25 @@ from datetime import timedelta
 app.permanent_session_lifetime = timedelta(days=30)
 DB_PATH = os.environ.get('DB_PATH', os.path.join(os.path.dirname(os.path.abspath(__file__)), 'expenses.db'))
 
+def run_migrations():
+    conn = sqlite3.connect(DB_PATH)
+    conn.execute('''CREATE TABLE IF NOT EXISTS accounts (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT UNIQUE NOT NULL,
+        initial_balance REAL NOT NULL DEFAULT 0
+    )''')
+    conn.execute("INSERT OR IGNORE INTO accounts(name, initial_balance) VALUES('Δημήτρης', 0)")
+    conn.execute("INSERT OR IGNORE INTO accounts(name, initial_balance) VALUES('Κατερίνα', 0)")
+    cols_exp = [r[1] for r in conn.execute("PRAGMA table_info(expenses)").fetchall()]
+    if 'account_id' not in cols_exp:
+        conn.execute('ALTER TABLE expenses ADD COLUMN account_id INTEGER REFERENCES accounts(id)')
+    cols_inc = [r[1] for r in conn.execute("PRAGMA table_info(income)").fetchall()]
+    if 'account_id' not in cols_inc:
+        conn.execute('ALTER TABLE income ADD COLUMN account_id INTEGER REFERENCES accounts(id)')
+    conn.commit(); conn.close()
+
+run_migrations()
+
 def get_db():
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
@@ -23,6 +42,9 @@ def get_categories():
 
 def get_income_categories():
     db = get_db(); rows = db.execute('SELECT * FROM income_categories ORDER BY name').fetchall(); db.close(); return rows
+
+def get_accounts():
+    db = get_db(); rows = db.execute('SELECT * FROM accounts ORDER BY name').fetchall(); db.close(); return rows
 
 def get_years():
     db = get_db()
@@ -98,6 +120,14 @@ def index():
     pending_total = sum(r['amount'] for r in pending)
     recent_inc = db.execute("SELECT i.income_date as dt,'income' as type,ic.name as label,p.name as person,i.amount,i.notes FROM income i JOIN income_categories ic ON i.category_id=ic.id LEFT JOIN persons p ON i.person_id=p.id ORDER BY i.income_date DESC, i.id DESC LIMIT 5").fetchall()
 
+    accounts_raw = db.execute('SELECT * FROM accounts ORDER BY name').fetchall()
+    account_balances = []
+    for acc in accounts_raw:
+        acc_inc = db.execute('SELECT COALESCE(SUM(amount),0) FROM income WHERE account_id=?', (acc['id'],)).fetchone()[0]
+        acc_exp = db.execute('SELECT COALESCE(SUM(amount),0) FROM expenses WHERE account_id=? AND is_pending=0', (acc['id'],)).fetchone()[0]
+        account_balances.append({'id': acc['id'], 'name': acc['name'], 'initial_balance': acc['initial_balance'], 'balance': acc['initial_balance'] + acc_inc - acc_exp})
+    total_account_balance = sum(a['balance'] for a in account_balances)
+
     db.close()
     return render_template('index.html',
         exp_all=exp_all, exp_year=exp_year, exp_month=exp_month,
@@ -106,6 +136,7 @@ def index():
         top_cats=top_cats, monthly_exp=monthly_exp, monthly_inc=monthly_inc,
         recent_exp=recent_exp, recent_inc=recent_inc,
         pending=pending, pending_total=pending_total,
+        account_balances=account_balances, total_account_balance=total_account_balance,
         now_str=today.isoformat(),
         current_year=today.year, month_short=MONTH_SHORT)
 
@@ -135,11 +166,11 @@ def add_expense():
     if request.method=='POST':
         pid=request.form.get('person_id') or None; cid=request.form['category_id']
         edate=request.form['expense_date']; amt=float(request.form['amount']); notes=request.form.get('notes','')
-        pending=1 if request.form.get('is_pending') else 0
-        db=get_db(); db.execute('INSERT INTO expenses(person_id,category_id,expense_date,amount,notes,is_pending)VALUES(?,?,?,?,?,?)',(pid,cid,edate,amt,notes,pending)); db.commit(); db.close()
+        pending=1 if request.form.get('is_pending') else 0; aid=request.form.get('account_id') or None
+        db=get_db(); db.execute('INSERT INTO expenses(person_id,category_id,expense_date,amount,notes,is_pending,account_id)VALUES(?,?,?,?,?,?,?)',(pid,cid,edate,amt,notes,pending,aid)); db.commit(); db.close()
         msg='Εκκρεμής πληρωμή καταχωρήθηκε! 🕐' if pending else 'Το έξοδο καταχωρήθηκε!'
         flash(msg,'warning' if pending else 'success'); return redirect(url_for('expenses'))
-    return render_template('add_expense.html', persons=get_persons(), categories=get_categories(), today=date.today().isoformat())
+    return render_template('add_expense.html', persons=get_persons(), categories=get_categories(), accounts=get_accounts(), today=date.today().isoformat())
 
 @app.route('/expenses/edit/<int:eid>', methods=['GET','POST'])
 @login_required
@@ -148,11 +179,11 @@ def edit_expense(eid):
     if request.method=='POST':
         pid=request.form.get('person_id') or None; cid=request.form['category_id']
         edate=request.form['expense_date']; amt=float(request.form['amount']); notes=request.form.get('notes','')
-        pending=1 if request.form.get('is_pending') else 0
-        db.execute('UPDATE expenses SET person_id=?,category_id=?,expense_date=?,amount=?,notes=?,is_pending=? WHERE id=?',(pid,cid,edate,amt,notes,pending,eid)); db.commit(); db.close()
+        pending=1 if request.form.get('is_pending') else 0; aid=request.form.get('account_id') or None
+        db.execute('UPDATE expenses SET person_id=?,category_id=?,expense_date=?,amount=?,notes=?,is_pending=?,account_id=? WHERE id=?',(pid,cid,edate,amt,notes,pending,aid,eid)); db.commit(); db.close()
         flash('Ενημερώθηκε!','success'); return redirect(url_for('expenses'))
     row=db.execute('SELECT e.*,c.name as cat_name,p.name as person_name FROM expenses e JOIN categories c ON e.category_id=c.id LEFT JOIN persons p ON e.person_id=p.id WHERE e.id=?',(eid,)).fetchone(); db.close()
-    return render_template('edit_expense.html', row=row, persons=get_persons(), categories=get_categories())
+    return render_template('edit_expense.html', row=row, persons=get_persons(), categories=get_categories(), accounts=get_accounts())
 
 @app.route('/expenses/delete/<int:eid>', methods=['POST'])
 @login_required
@@ -186,9 +217,10 @@ def add_income():
     if request.method=='POST':
         pid=request.form.get('person_id') or None; cid=request.form['category_id']
         idate=request.form['income_date']; amt=float(request.form['amount']); notes=request.form.get('notes','')
-        db=get_db(); db.execute('INSERT INTO income(person_id,category_id,income_date,amount,notes)VALUES(?,?,?,?,?)',(pid,cid,idate,amt,notes)); db.commit(); db.close()
+        aid=request.form.get('account_id') or None
+        db=get_db(); db.execute('INSERT INTO income(person_id,category_id,income_date,amount,notes,account_id)VALUES(?,?,?,?,?,?)',(pid,cid,idate,amt,notes,aid)); db.commit(); db.close()
         flash('Το έσοδο καταχωρήθηκε!','success'); return redirect(url_for('income'))
-    return render_template('add_income.html', persons=get_persons(), income_categories=get_income_categories(), today=date.today().isoformat())
+    return render_template('add_income.html', persons=get_persons(), income_categories=get_income_categories(), accounts=get_accounts(), today=date.today().isoformat())
 
 @app.route('/income/edit/<int:iid>', methods=['GET','POST'])
 @login_required
@@ -197,10 +229,11 @@ def edit_income(iid):
     if request.method=='POST':
         pid=request.form.get('person_id') or None; cid=request.form['category_id']
         idate=request.form['income_date']; amt=float(request.form['amount']); notes=request.form.get('notes','')
-        db.execute('UPDATE income SET person_id=?,category_id=?,income_date=?,amount=?,notes=? WHERE id=?',(pid,cid,idate,amt,notes,iid)); db.commit(); db.close()
+        aid=request.form.get('account_id') or None
+        db.execute('UPDATE income SET person_id=?,category_id=?,income_date=?,amount=?,notes=?,account_id=? WHERE id=?',(pid,cid,idate,amt,notes,aid,iid)); db.commit(); db.close()
         flash('Ενημερώθηκε!','success'); return redirect(url_for('income'))
     row=db.execute('SELECT i.*,ic.name as cat_name,p.name as person_name FROM income i JOIN income_categories ic ON i.category_id=ic.id LEFT JOIN persons p ON i.person_id=p.id WHERE i.id=?',(iid,)).fetchone(); db.close()
-    return render_template('edit_income.html', row=row, persons=get_persons(), income_categories=get_income_categories())
+    return render_template('edit_income.html', row=row, persons=get_persons(), income_categories=get_income_categories(), accounts=get_accounts())
 
 @app.route('/income/delete/<int:iid>', methods=['POST'])
 @login_required
@@ -514,3 +547,15 @@ def pending_expenses():
     db.close()
     today_str = date.today().isoformat()
     return render_template('pending_expenses.html', rows=rows, total=total, now=today_str)
+
+# ─── ACCOUNTS ────────────────────────────────────────────────────────────────
+
+@app.route('/accounts/set-balance/<int:aid>', methods=['POST'])
+@login_required
+def set_account_balance(aid):
+    try:
+        balance = float(request.form['initial_balance'])
+    except (ValueError, KeyError):
+        flash('Μη έγκυρο ποσό.', 'danger'); return redirect(url_for('index'))
+    db = get_db(); db.execute('UPDATE accounts SET initial_balance=? WHERE id=?', (balance, aid)); db.commit(); db.close()
+    flash('Αρχικό κεφάλαιο ενημερώθηκε!', 'success'); return redirect(url_for('index'))

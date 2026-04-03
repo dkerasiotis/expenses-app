@@ -90,6 +90,58 @@
   </div>
 </div>
 
+<!-- ── Account Balances ───────────────────────────────────────── -->
+<div class="row g-3 mb-4">
+  {% for acc in account_balances %}
+  <div class="col-12 col-md-4">
+    <div class="card p-3">
+      <div class="d-flex justify-content-between align-items-start">
+        <div class="d-flex align-items-center gap-3">
+          <div class="stat-icon bg-primary bg-opacity-10 text-primary"><i class="bi bi-bank"></i></div>
+          <div>
+            <div class="text-muted small">Υπόλοιπο {{ acc.name }}</div>
+            <div class="amount fs-5 {{ 'text-income' if acc.balance >= 0 else 'text-expense' }}">€{{ "%.2f"|format(acc.balance) }}</div>
+            <div class="text-muted" style="font-size:.72rem">Αρχικό κεφάλαιο: €{{ "%.2f"|format(acc.initial_balance) }}</div>
+          </div>
+        </div>
+        <button class="btn btn-outline-secondary btn-sm" style="font-size:.7rem;padding:2px 7px" data-bs-toggle="modal" data-bs-target="#modalBalance{{ acc.id }}"><i class="bi bi-pencil"></i></button>
+      </div>
+    </div>
+    <!-- Modal -->
+    <div class="modal fade" id="modalBalance{{ acc.id }}" tabindex="-1">
+      <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+          <div class="modal-header py-2"><h6 class="modal-title mb-0">Αρχικό κεφάλαιο — {{ acc.name }}</h6><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+          <form method="post" action="{{ url_for('set_account_balance', aid=acc.id) }}">
+            <div class="modal-body">
+              <label class="form-label small fw-semibold">Ποσό (€)</label>
+              <div class="input-group">
+                <span class="input-group-text">€</span>
+                <input type="number" name="initial_balance" class="form-control" step="0.01" value="{{ acc.initial_balance }}" required>
+              </div>
+            </div>
+            <div class="modal-footer py-2">
+              <button type="submit" class="btn btn-primary btn-sm">Αποθήκευση</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+  <div class="col-12 col-md-4">
+    <div class="card p-3" style="background:linear-gradient(135deg,#f0fdf4,#dcfce7)">
+      <div class="d-flex align-items-center gap-3">
+        <div class="stat-icon bg-success bg-opacity-10 text-success"><i class="bi bi-wallet-fill"></i></div>
+        <div>
+          <div class="text-muted small fw-semibold">Συνολικό Υπόλοιπο</div>
+          <div class="amount fs-4 fw-bold {{ 'text-income' if total_account_balance >= 0 else 'text-expense' }}">€{{ "%.2f"|format(total_account_balance) }}</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- ── Charts & Top cats ─────────────────────────────────────── -->
 <div class="row g-3 mb-3">
   <div class="col-lg-8">

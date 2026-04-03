@@ -6,8 +6,8 @@ services:
     ports:
       - "5000:5000"
     volumes:
-      # Persistent database – ο φάκελος /data του container αντιστοιχεί στο ./data του host
-      - ./data:/data
+      # Persistent database στο ZFS pool /criticaldata
+      - /criticaldata/expenses-app:/data
     env_file:
       - .env
     environment:
